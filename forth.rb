@@ -5,9 +5,7 @@ class Object
   def fortheval(env,valstack,callstack)
     valstack.push self
 	end
-	def call(e,v,c)
-    fortheval e,v,c
-	end
+	alias_method :call, :fortheval
 end
 
 class Symbol
@@ -69,13 +67,16 @@ DEFAULTS = {
 		v3 = v.pop
 		v << v2 << v1 << v3
 	end,
-	:pop => lambda { |e,v,c| v.pop },
 	:dup => lambda do |e,v,c|
     val = v.pop
 		v << val << val
 	end,
 	:true => lambda{|e,v,c| v << true},
 	:false => lambda{|e,v,c| v << false},
+	:ruby => lambda do |e,v,c|
+    name = v.pop
+		v << Kernel.const_get(name)
+  end,
 	:if => lambda do |e,v,c|
     xelse = v.pop
 	  xthen = v.pop
@@ -94,6 +95,8 @@ class Interpreter
 	  @env = DEFAULTS
     @valstack = []
 		@callstack = []
+		@env[:stack] = lambda{|e,v,c| v << @valstack}
+		@env[:callstack] = lambda{|e,v,c| v << @callstack}
 		load_file STDLIB
 	end
   
@@ -111,10 +114,10 @@ class Interpreter
     while line = Readline.readline("> ",true)
 		  begin
 		    eval_str line
-			  p @valstack
+        #p @valstack
 			rescue StandardError => e
         puts "ERROR: #{e}"
-				p @callstack
+				p @valstack, @callstack
 			end
     end
 	end
