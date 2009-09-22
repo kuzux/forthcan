@@ -8,6 +8,10 @@ class Object
 	alias_method :call, :fortheval
 end
 
+class NilClass
+  def fortheval(e,v,c); end
+end
+
 class Symbol
   def fortheval(env,valstack,callstack)
     if env.has_key? self
@@ -38,6 +42,7 @@ class Block
 
 	def call(env,valstack, callstack)
     callstack << self
+		nil
 	end
 end
 
@@ -75,7 +80,6 @@ DEFAULTS = {
     v1 = v.pop
 		v2 = v.pop
 		v3 = v.pop
-		p :rot, v1, v2, v3
 		v << v2 << v1 << v3
 	end,
 	:dup => lambda do |e,v,c|
@@ -108,6 +112,7 @@ class Interpreter
 		@callstack = []
 		@env[:stack] = lambda{|e,v,c| v << @valstack}
 		@env[:callstack] = lambda{|e,v,c| v << @callstack}
+		@env[:env] = lambda{|e,v,c| v << @env}
 		load_file STDLIB
 	end
   

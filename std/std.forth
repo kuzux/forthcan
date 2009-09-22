@@ -15,6 +15,9 @@
 [ ">=" swap 1 . ] ">=" ;
 [ = not ] "<>" ;
 
+[ callstack "[]" -2 1 . "clone" 0 . ] "pushcc" ;
+[ callstack "push" rot 1 . ] "call" ;
+
 [ "Kernel" ruby "puts" rot 1 . drop ] "print" ;
 [ "Kernel" ruby "exit" 0 . ] "exit" ;
 
