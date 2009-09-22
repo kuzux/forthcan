@@ -19,3 +19,4 @@
 [ "Kernel" ruby "exit" 0 . ] "exit" ;
 
 [ stack print ] "show" ;
+

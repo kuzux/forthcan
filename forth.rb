@@ -19,16 +19,25 @@ class Symbol
 end
 
 class Block
+  attr_accessor :name
   def initialize(ast)
 	  @inst = ast
+		@iptr = 0
+		@name = "<BLOCK>"
+	end
+
+	def eval_next(e,v,c)
+		if @iptr >= @inst.length
+      c.pop
+			@iptr = 0
+			return
+		end
+	  @inst[@iptr].fortheval(e,v,c)
+    @iptr += 1
 	end
 
 	def call(env,valstack, callstack)
     callstack << self
-    @inst.each do |i|
-      i.fortheval(env,valstack,callstack)
-		end
-		callstack.pop
 	end
 end
 
@@ -54,6 +63,7 @@ DEFAULTS = {
 	:";" => lambda do |env,valstack,callstack|
     name = valstack.pop.to_sym
 		code = valstack.pop
+		code.name = name
 		env[name] = code
 	end,
 	:swap => lambda do |env,valstack,callstack|
@@ -65,6 +75,7 @@ DEFAULTS = {
     v1 = v.pop
 		v2 = v.pop
 		v3 = v.pop
+		p :rot, v1, v2, v3
 		v << v2 << v1 << v3
 	end,
 	:dup => lambda do |e,v,c|
@@ -102,7 +113,12 @@ class Interpreter
   
   def eval_str(str)
 	  ast = parse_blocks ForthParser.parse(str)
-    Block.new(ast).call(@env,@valstack,@callstack)
+    top = Block.new(ast)
+	  top.name = "<TOPLEVEL>"
+    top.call(@env,@valstack,@callstack)
+	  until @callstack.empty?
+      @callstack.last.eval_next(@env,@valstack,@callstack) 
+		end
 	end
 
 	def load_file(name)
@@ -114,7 +130,7 @@ class Interpreter
     while line = Readline.readline("> ",true)
 		  begin
 		    eval_str line
-        #p @valstack
+        p @valstack
 			rescue StandardError => e
         puts "ERROR: #{e}"
 				p @valstack, @callstack
