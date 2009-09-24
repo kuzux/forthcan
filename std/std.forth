@@ -15,11 +15,14 @@
 [ ">=" swap 1 . ] ">=" ;
 [ = not ] "<>" ;
 
+
+[ stack "[]" rot -1 * 1 . ] "nth";
 [ callstack "[]" -2 1 . "clone" 0 . ] "pushcc" ;
-[ callstack "push" rot 1 . ] "call" ;
+[ callstack "pushn" rot 1 . ] "call" ;
 
 [ "Kernel" ruby "puts" rot 1 . drop ] "print" ;
+[ "Kernel" ruby "p" rot 1 . drop ] "p" ;
 [ "Kernel" ruby "exit" 0 . ] "exit" ;
 
-[ stack print ] "show" ;
+[ stack p ] "show" ;
 

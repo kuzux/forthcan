@@ -22,6 +22,13 @@ class Symbol
 	end
 end
 
+class Array
+  def pushn v
+    self << v
+		nil
+	end
+end
+
 class Block
   attr_accessor :name
   def initialize(ast)
@@ -40,8 +47,8 @@ class Block
     @iptr += 1
 	end
 
-	def call(env,valstack, callstack)
-    callstack << self
+	def call(e,v,c)
+    c << self
 		nil
 	end
 end
@@ -57,29 +64,24 @@ def parse_blocks(data)
 end
 
 DEFAULTS = {
-	:"." => lambda do |env,valstack,callstack|
-    num = valstack.pop
-		args = []
-		num.times{ args << valstack.pop }
-	  msg = valstack.pop
-		receiver = valstack.pop
-		valstack.push receiver.send(msg,*args)
+	:"." => lambda do |e,v,c|
+    num = v.pop; args = []
+		num.times{ args << v.pop }
+	  msg = v.pop; receiver = v.pop
+		res = receiver.send(msg,*args)
+	  v << res unless res.nil?	
 	end,
-	:";" => lambda do |env,valstack,callstack|
-    name = valstack.pop.to_sym
-		code = valstack.pop
+	:";" => lambda do |e,v,c|
+    name = v.pop.to_sym;	code = v.pop
 		code.name = name
-		env[name] = code
+		e[name] = code
 	end,
-	:swap => lambda do |env,valstack,callstack|
-    v1 = valstack.pop
-		v2 = valstack.pop
-		valstack << v1 << v2
+	:swap => lambda do |e,v,c|
+    v1 = v.pop;	v2 = v.pop
+		v << v1 << v2
 	end,
 	:rot => lambda do |e,v,c|
-    v1 = v.pop
-		v2 = v.pop
-		v3 = v.pop
+    v1 = v.pop;	v2 = v.pop; v3 = v.pop
 		v << v2 << v1 << v3
 	end,
 	:dup => lambda do |e,v,c|
@@ -93,15 +95,15 @@ DEFAULTS = {
 		v << Kernel.const_get(name)
   end,
 	:if => lambda do |e,v,c|
-    xelse = v.pop
-	  xthen = v.pop
-		cond = v.pop
-		if cond
-      xthen.call(e,v,c)
-		else
-			xelse.call(e,v,c)
+    xelse = v.pop; xthen = v.pop; cond = v.pop
+		cond ? xthen.call(e,v,c) : xelse.call(e,v,c)
+	end,
+	:while => lambda do |e,v,c|
+    body = v.pop; cond = v.pop
+		while cond.call(e,v,c)
+      body.call(e,v,c)
 		end
-	end
+	end,
 }
 STDLIB = "std/std.forth"
 
@@ -132,6 +134,7 @@ class Interpreter
 
 	def repl
 	  require 'readline'
+		Readline.completion_proc = lambda{ |start| @env.keys.select{|x| x.to_s =~ /^#{Regexp.escape(start)}/} }
     while line = Readline.readline("> ",true)
 		  begin
 		    eval_str line

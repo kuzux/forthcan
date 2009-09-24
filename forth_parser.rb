@@ -18,7 +18,7 @@ module ForthParser
   Integer = regexp(/-?\d+(?!\w)/).map{|x| x.to_i }
   Float = regexp(/-?\d+(\.\d+)?/).map{|x| x.to_f }
   Number = longest(Integer, Float)
-  Special = Regexp.escape('+*/=<>?!@#$%^&:\\~|^.;')
+  Special = Regexp.escape('+-*/=<>?!@#$%^&:\\~|^.;')
   Symbol = regexp(/[\w#{Special}]*[A-Za-z#{Special}][\w#{Special}]*/).map{|s| s.to_sym }
   String = stringer(%q{"}, %q{"}, "n" => "\n", "t" => "\t")
 	Block = char("[") >> lazy{Exprs} << char("]")
