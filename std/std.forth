@@ -7,7 +7,6 @@
 [ stack "popn" 0 . ] "drop" ;
 
 [ false true if ] "not" ;
-
 [ swap dup rot [drop] [drop drop false] if ] "and" ;
 [ swap dup rot [drop drop true] [drop] if ] "or" ;
 [ "<" swap 1 . ] "<" ;
@@ -23,11 +22,14 @@
 [ vars "[]" rot 1 . ] "@" ;
 [ vars rot rot "[]=" rot rot 2 . ] "!";
 
-[ "Kernel" ruby "print" rot 1 . drop ] "print" ;
-[ "Kernel" ruby "puts" rot 1 . drop ] "puts" ;
+[ "Kernel" ruby "print" rot 1 . ] "print" ;
+[ "Kernel" ruby "puts" rot 1 . ] "puts" ;
 [ "Kernel" ruby "p" rot 1 . drop ] "p" ;
 [ "Kernel" ruby "exit" 0 . ] "exit" ;
 
 [["."] ["F"] if print] "assert" ;
+[["F"] ["."] if print] "assertf" ;
+[ = assert] "asserteq" ;
+[ <> assert] "assertneq" ;
 
 [ stack p ] "show" ;

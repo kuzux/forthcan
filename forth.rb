@@ -153,5 +153,10 @@ class Interpreter
   end
 end
 
-Interpreter.new.repl
-  
+if __FILE__ == $0
+  int = Interpreter.new
+  if ARGV.size >= 1
+    int.load_file(ARGV[0])
+  end
+  int.repl
+end
