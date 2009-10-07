@@ -23,9 +23,11 @@
 [ vars "[]" rot 1 . ] "@" ;
 [ vars rot rot "[]=" rot rot 2 . ] "!";
 
-[ "Kernel" ruby "puts" rot 1 . drop ] "print" ;
+[ "Kernel" ruby "print" rot 1 . drop ] "print" ;
+[ "Kernel" ruby "puts" rot 1 . drop ] "puts" ;
 [ "Kernel" ruby "p" rot 1 . drop ] "p" ;
 [ "Kernel" ruby "exit" 0 . ] "exit" ;
 
-[ stack p ] "show" ;
+[["."] ["F"] if print] "assert" ;
 
+[ stack p ] "show" ;
