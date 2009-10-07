@@ -27,6 +27,10 @@ class Array
     self << v
 		nil
 	end
+  def popn
+    self.pop
+    nil
+  end
 end
 
 class Block
@@ -112,9 +116,11 @@ class Interpreter
 	  @env = DEFAULTS
     @valstack = []
 		@callstack = []
+		@vars = {}
 		@env[:stack] = lambda{|e,v,c| v << @valstack}
 		@env[:callstack] = lambda{|e,v,c| v << @callstack}
 		@env[:env] = lambda{|e,v,c| v << @env}
+		@env[:vars] = lambda{|e,v,c| v << @vars}
 		load_file STDLIB
 	end
   
