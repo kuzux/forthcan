@@ -182,13 +182,13 @@ module Forthcan
       require 'readline'
       Readline.completion_proc = lambda{ |start| @env.keys.select{|x| x.to_s =~ /^#{Regexp.escape(start)}/} }
       while line = Readline.readline("> ",true)
-        #begin
+        begin
           eval_str line
           p @valstack
-        #rescue StandardError => e
-        #  puts "ERROR: #{e}"
-        #  p @valstack, @callstack
-        #end
+        rescue StandardError => e
+          puts "ERROR: #{e}"
+          p @valstack, @callstack.map{|c| c.name}
+        end
       end
     end
   end
