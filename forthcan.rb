@@ -148,6 +148,7 @@ module Forthcan
   end
 
   class Interpreter
+    attr_reader :stack, :callstack, :env
     def initialize
       @env = DEFAULTS
       @valstack = []
@@ -169,13 +170,15 @@ module Forthcan
       top = Block.new(ast)
       top.name = "<TOPLEVEL>"
       Continuation.new(top).call(@env,@valstack,@callstack)
-      until @callstack.empty?
-        @callstack.last.eval_next(@env,@valstack,@callstack) 
-      end
+      eval_next until @callstack.empty?
+    end
+
+    def eval_next
+      @callstack.last.eval_next(@env,@valstack,@callstack)
     end
 
     def load_file(name)
-      eval_str File.read(name) 
+      eval_str File.read(name)
     end
 
     def repl
