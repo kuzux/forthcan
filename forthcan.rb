@@ -130,6 +130,10 @@ module Forthcan
         body.call(int)
       end
     end,
+		:stack => lambda{|int| int.valstack << int.valstack},
+		:callstack => lambda{|int| int.valstack << int.callstack},
+		:env => lambda{|int| int.valstack << int.env},
+		:vars => lambda{|int| int.valstack << int.vars},
   }
   STDLIB = "std/std.forth"
 
@@ -168,16 +172,12 @@ module Forthcan
   end
 
   class Interpreter
-    attr_reader :valstack, :callstack, :env
+    attr_reader :valstack, :callstack, :env, :vars
     def initialize
       @env = DEFAULTS
       @valstack = []
       @callstack = []
       @vars = {}
-      @env[:stack] = lambda{|int| int.valstack << @valstack}
-      @env[:callstack] = lambda{|int| int.valstack << @callstack}
-      @env[:env] = lambda{|int| int.valstack << @env}
-      @env[:vars] = lambda{|int| int.valstack << @vars}
       ::Object.send(:include, CoreExt::Object)
       ::NilClass.send(:include, CoreExt::Nil)
       ::Symbol.send(:include, CoreExt::Symbol)
