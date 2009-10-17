@@ -25,10 +25,10 @@ module Forthcan
     def to_proc(int)
       cont = Forthcan::Continuation.new(self)
       lambda do |*args|
-        args.each{ |a| v << a }
+        args.each{ |a| int.valstack << a }
         cont.call
         while c.include? cont
-          # oops, seems like i need to pass the interpreter object to all those methods :D
+          int.eval_next
         end
       end
     end
