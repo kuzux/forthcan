@@ -18,8 +18,19 @@ module Forthcan
       @inst[i]
     end
 
-    def call(e,v,c)
-      Forthcan::Continuation.new(self).call(e,v,c)
+    def call(int)
+      Forthcan::Continuation.new(self).call(int)
+    end
+
+    def to_proc(int)
+      cont = Forthcan::Continuation.new(self)
+      lambda do |*args|
+        args.each{ |a| v << a }
+        cont.call
+        while c.include? cont
+          # oops, seems like i need to pass the interpreter object to all those methods :D
+        end
+      end
     end
 
     def self.parse_blocks(data)
@@ -39,12 +50,12 @@ module Forthcan
       @iptr = 0
     end
     
-    def eval_next(e,v,c)
+    def eval_next(int)
       if @iptr >= @block.length
-        c.pop
+        int.callstack.pop
         return
       end
-      @block[@iptr].fortheval(e,v,c)
+      @block[@iptr].fortheval(int)
       @iptr += 1
     end
     
@@ -52,62 +63,71 @@ module Forthcan
       @block.name
     end
     
-    def call(e,v,c)
+    def call(int)
       if @block.is_a? Proc
-        @block.call(e,v,c)
+        @block.call(int)
         return
       end
       
-      c << self
+      int.callstack << self
       nil
     end
   end
 
   DEFAULTS = {
-    :"." => lambda do |e,v,c|
+    :"." => lambda do |int|
+      v = int.valstack
       num = v.pop; args = []
       num.times{ args << v.pop }
       msg = v.pop; receiver = v.pop
       res = receiver.send(msg,*args)
       v << res unless res.nil?  
     end,
-    :"::" => lambda do |e,v,c|
+    :"::" => lambda do |int|
+      v = int.valstack
       child = v.pop
       parent = v.pop
       v << parent.const_get(child)
     end,
-    :";" => lambda do |e,v,c|
+    :";" => lambda do |int|
+      v = int.valstack
       name = v.pop.to_sym;  code = v.pop
       code.name = name
-      e[name] = code
+      int.env[name] = code
     end,
-    :swap => lambda do |e,v,c|
+    :swap => lambda do |int|
+      v = int.valstack
       v1 = v.pop;  v2 = v.pop
       v << v1 << v2
     end,
-    :rot => lambda do |e,v,c|
+    :rot => lambda do |int|
+      v = int.valstack
       v1 = v.pop;  v2 = v.pop; v3 = v.pop
       v << v2 << v1 << v3
     end,
-    :dup => lambda do |e,v,c|
+    :dup => lambda do |int|
+      v = int.valstack
       val = v.pop
       v << val << val
     end,
-    :true => lambda{|e,v,c| v << true},
-    :false => lambda{|e,v,c| v << false},
-    :ruby => lambda do |e,v,c|
+    :true => lambda{|int| int.valstack << true},
+    :false => lambda{|int| int.valstack << false},
+    :ruby => lambda do |int|
+      v = int.valstack
       name = v.pop
       v << Kernel.const_get(name)
     end,
-    :if => lambda do |e,v,c|
+    :if => lambda do |int|
+      v = int.valstack
       xelse = v.pop; xthen = v.pop; cond = v.pop
-      cond ? xthen.call(e,v,c) : xelse.call(e,v,c)
+      cond ? xthen.call(int) : xelse.call(int)
     end,
-    :while => lambda do |e,v,c|
+    :while => lambda do |int|
+      v = int.valstack
       body = v.pop; cond = v.pop
-      condp = lambda{ cond.call(e,v,c); v.pop }
+      condp = lambda{ cond.call(int); v.pop }
       while r = condp.call
-        body.call(e,v,c)
+        body.call(int)
       end
     end,
   }
@@ -115,20 +135,20 @@ module Forthcan
 
   module CoreExt
     module Object
-      def fortheval(env,valstack,callstack)
-        valstack.push self
+      def fortheval(int)
+        int.valstack.push self
       end
       alias_method :call, :fortheval
     end
     
     module Nil
-      def fortheval(e,v,c); end
+      def fortheval(int); end
     end
     
     module Symbol
-      def fortheval(env,valstack,callstack)
-        if env.has_key? self
-          Forthcan::Continuation.new(env[self]).call(env,valstack,callstack)
+      def fortheval(int)
+        if int.env.has_key? self
+          int.env[self].call(int)
         else
           raise "No word called #{self}"
         end
@@ -148,16 +168,16 @@ module Forthcan
   end
 
   class Interpreter
-    attr_reader :stack, :callstack, :env
+    attr_reader :valstack, :callstack, :env
     def initialize
       @env = DEFAULTS
       @valstack = []
       @callstack = []
       @vars = {}
-      @env[:stack] = lambda{|e,v,c| v << @valstack}
-      @env[:callstack] = lambda{|e,v,c| v << @callstack}
-      @env[:env] = lambda{|e,v,c| v << @env}
-      @env[:vars] = lambda{|e,v,c| v << @vars}
+      @env[:stack] = lambda{|int| int.valstack << @valstack}
+      @env[:callstack] = lambda{|int| int.valstack << @callstack}
+      @env[:env] = lambda{|int| int.valstack << @env}
+      @env[:vars] = lambda{|int| int.valstack << @vars}
       ::Object.send(:include, CoreExt::Object)
       ::NilClass.send(:include, CoreExt::Nil)
       ::Symbol.send(:include, CoreExt::Symbol)
@@ -169,12 +189,12 @@ module Forthcan
       ast = Block.parse_blocks ForthParser.parse(str)
       top = Block.new(ast)
       top.name = "<TOPLEVEL>"
-      Continuation.new(top).call(@env,@valstack,@callstack)
+      Continuation.new(top).call(self)
       eval_next until @callstack.empty?
     end
 
     def eval_next
-      @callstack.last.eval_next(@env,@valstack,@callstack)
+      @callstack.last.eval_next(self)
     end
 
     def load_file(name)
