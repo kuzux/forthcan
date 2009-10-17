@@ -22,5 +22,11 @@ true false assertneq
 3 5 swap 3 asserteq 5 asserteq
 3 5 7 rot 3 asserteq 7 asserteq drop
 
+"variables" section
+3 "testy" !
+"testy" @ 3 asserteq
+"testy" @ 5 + "testy" !
+"testy" @ 8 asserteq
+
 "\n" print
 exit
