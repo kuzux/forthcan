@@ -18,17 +18,17 @@ module Forthcan
       @inst[i]
     end
 
-    def call(int)
-      Forthcan::Continuation.new(self).call(int)
+    def call(st)
+      Forthcan::Continuation.new(self).call(st)
     end
 
-    def to_proc(int)
+    def to_proc(st)
       cont = Forthcan::Continuation.new(self)
       lambda do |*args|
-        args.each{ |a| int.valstack << a }
+        args.each{ |a| st.valstack << a }
         cont.call
         while c.include? cont
-          int.eval_next
+          st.eval_next
         end
       end
     end
@@ -50,12 +50,12 @@ module Forthcan
       @iptr = 0
     end
     
-    def eval_next(int)
+    def eval_next(st)
       if @iptr >= @block.length
-        int.callstack.pop
+        st.callstack.pop
         return
       end
-      @block[@iptr].fortheval(int)
+      @block[@iptr].fortheval(st)
       @iptr += 1
     end
     
@@ -63,96 +63,96 @@ module Forthcan
       @block.name
     end
     
-    def call(int)
+    def call(st)
       if @block.is_a? Proc
-        @block.call(int)
+        @block.call(st)
         return
       end
       
-      int.callstack << self
+      st.callstack << self
       nil
     end
   end
 
   DEFAULTS = {
-    :"." => lambda do |int|
-      v = int.valstack
+    :"." => lambda do |st|
+      v = st.valstack
       num = v.pop; args = []
       num.times{ args << v.pop }
       msg = v.pop; receiver = v.pop
       res = receiver.send(msg,*args)
       v << res unless res.nil?  
     end,
-    :"::" => lambda do |int|
-      v = int.valstack
+    :"::" => lambda do |st|
+      v = st.valstack
       child = v.pop
       parent = v.pop
       v << parent.const_get(child)
     end,
-    :";" => lambda do |int|
-      v = int.valstack
+    :";" => lambda do |st|
+      v = st.valstack
       name = v.pop.to_sym;  code = v.pop
       code.name = name
-      int.env[name] = code
+      st.env[name] = code
     end,
-    :swap => lambda do |int|
-      v = int.valstack
+    :swap => lambda do |st|
+      v = st.valstack
       v1 = v.pop;  v2 = v.pop
       v << v1 << v2
     end,
-    :rot => lambda do |int|
-      v = int.valstack
+    :rot => lambda do |st|
+      v = st.valstack
       v1 = v.pop;  v2 = v.pop; v3 = v.pop
       v << v2 << v1 << v3
     end,
-    :dup => lambda do |int|
-      v = int.valstack
+    :dup => lambda do |st|
+      v = st.valstack
       val = v.pop
       v << val << val
     end,
-    :true => lambda{|int| int.valstack << true},
-    :false => lambda{|int| int.valstack << false},
-    :ruby => lambda do |int|
-      v = int.valstack
+    :true => lambda{|st| st.valstack << true},
+    :false => lambda{|st| st.valstack << false},
+    :ruby => lambda do |st|
+      v = st.valstack
       name = v.pop
       v << Kernel.const_get(name)
     end,
-    :if => lambda do |int|
-      v = int.valstack
+    :if => lambda do |st|
+      v = st.valstack
       xelse = v.pop; xthen = v.pop; cond = v.pop
-      cond ? xthen.call(int) : xelse.call(int)
+      cond ? xthen.call(st) : xelse.call(st)
     end,
-    :while => lambda do |int|
-      v = int.valstack
+    :while => lambda do |st|
+      v = st.valstack
       body = v.pop; cond = v.pop
-      condp = lambda{ cond.call(int); v.pop }
+      condp = lambda{ cond.call(st); v.pop }
       while r = condp.call
-        body.call(int)
+        body.call(st)
       end
     end,
-		:stack => lambda{|int| int.valstack << int.valstack},
-		:callstack => lambda{|int| int.valstack << int.callstack},
-		:env => lambda{|int| int.valstack << int.env},
-		:vars => lambda{|int| int.valstack << int.vars},
+		:stack => lambda{|st| st.valstack << st.valstack},
+		:callstack => lambda{|st| st.valstack << st.callstack},
+		:env => lambda{|st| st.valstack << st.env},
+		:vars => lambda{|st| st.valstack << st.vars},
   }
   STDLIB = "std/std.forth"
 
   module CoreExt
     module Object
-      def fortheval(int)
-        int.valstack.push self
+      def fortheval(st)
+        st.valstack.push self
       end
       alias_method :call, :fortheval
     end
     
     module Nil
-      def fortheval(int); end
+      def fortheval(st); end
     end
     
     module Symbol
-      def fortheval(int)
-        if int.env.has_key? self
-          int.env[self].call(int)
+      def fortheval(st)
+        if st.env.has_key? self
+          st.env[self].call(st)
         else
           raise "No word called #{self}"
         end
@@ -171,13 +171,20 @@ module Forthcan
     end
   end
 
-  class Interpreter
+  class State
     attr_reader :valstack, :callstack, :env, :vars
-    def initialize
-      @env = DEFAULTS
+    def initialize(env)
+      @env = env
       @valstack = []
       @callstack = []
       @vars = {}
+    end
+  end
+
+  class Interpreter
+    attr_reader :valstack, :callstack, :env, :vars
+    def initialize
+      @state = State.new(DEFAULTS)
       ::Object.send(:include, CoreExt::Object)
       ::NilClass.send(:include, CoreExt::Nil)
       ::Symbol.send(:include, CoreExt::Symbol)
@@ -189,12 +196,12 @@ module Forthcan
       ast = Block.parse_blocks ForthParser.parse(str)
       top = Block.new(ast)
       top.name = "<TOPLEVEL>"
-      Continuation.new(top).call(self)
-      eval_next until @callstack.empty?
+      Continuation.new(top).call(@state)
+      eval_next until @state.callstack.empty?
     end
 
     def eval_next
-      @callstack.last.eval_next(self)
+      @state.callstack.last.eval_next(@state)
     end
 
     def load_file(name)
@@ -203,14 +210,14 @@ module Forthcan
 
     def repl
       require 'readline'
-      Readline.completion_proc = lambda{ |start| @env.keys.select{|x| x.to_s =~ /^#{Regexp.escape(start)}/} }
+      Readline.completion_proc = lambda{ |start| @state.env.keys.select{|x| x.to_s =~ /^#{Regexp.escape(start)}/} }
       while line = Readline.readline("> ",true)
         begin
           eval_str line
-          p @valstack
+          p @state.valstack
         rescue StandardError => e
           puts "ERROR: #{e}"
-          p @valstack, @callstack.map{|c| c.name}
+          p @state.valstack, @state.callstack.map{|c| c.name}
         end
       end
     end
